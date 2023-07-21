@@ -1,0 +1,144 @@
+
+###
+### Author: Mandy Jiang
+### Description:  A program that accepts files user inputs and determines which pixel from user inputted files to use 
+### for the pixels in the final image/value. It determines this by an agorithm using channel difference and the 
+### color channel value of the pixel. The output is a file that contains list of pixels with their rgb values from the final image. 
+
+
+
+def get_image_dimensions_string(file_name):
+    '''
+    Given the file name for a valid PPM file, this function will return the
+    image dimensions as a string. For example, if the image stored in the
+    file is 150 pixels wide and 100 pixels tall, this function should return
+    the string '150 100'.
+    file_name: A string. A PPM file name.
+    '''
+    image_file = open(file_name, 'r')
+    image_file.readline()
+    return image_file.readline().strip('\n')
+
+def load_image_pixels(file_name):
+    ''' Load the pixels from the image saved in the file named file_name.
+    The pixels will be stored in a 3d list, and the 3d list will be returned.
+    Each list in the outer-most list are the rows of pixels.
+    Each list within each row represents and individual pixel.
+    Each pixels is representd by a list of three ints, which are the RGB values of that pixel.
+    '''
+    pixels = []
+    image_file = open(file_name, 'r')
+
+    image_file.readline()
+    image_file.readline()
+    image_file.readline()
+
+    width_height = get_image_dimensions_string(file_name)
+    width_height = width_height.split(' ')
+    height = int(width_height[1])
+    width = int(width_height[0])
+    
+
+    for line in image_file:
+        line = line.strip('\n ')
+        rgb_row = line.split(' ')
+        row = []
+        for i in range(0, len(rgb_row), 3):
+            pixel = [int(rgb_row[i]), int(rgb_row[i+1]), int(rgb_row[i+2])]
+            row.append(pixel)
+        pixels.append(row)
+
+    return pixels
+
+def gs_algo(channel, channel_difference, img_pixels, fill_pixels):
+    '''
+    This function will determine which pixel (the pixel from greenscreen img or the pixel from fill img) the final list will use
+    using a for loop accessing indexes. 
+    channel:"r" "g" or "b", determines what color the screen is 
+    channel difference: a float help determining if the pixel/ color is from which image depending on value
+    img_pixels: 3d list with rgb values from greenscreen image
+    fill_pixels: 3d list with rgb values from the fill image
+
+    
+    '''
+    
+    r_index= 0 # row
+    p_index=0 #which pixel 
+    color_index=0 # which color value
+    result= [] #list to append final pixel values
+    if channel == 'r':
+        color_index = 0 #here we use color index to determine which rgb value we access, which depends on what the channel is
+    elif channel == 'g':
+        color_index = 1
+    elif channel=='b':
+        color_index = 2
+    
+    for i in img_pixels:
+        result.append([])
+        for x in i:
+            if int(x[color_index]) > channel_difference * int(x[color_index-1]) \
+              and int(x[color_index]) > channel_difference * int(x[color_index-2]): #by using indexes, we can easily see if the value of the index fits the criterias
+                result[r_index].append(fill_pixels[r_index][p_index]) #since it fits the pixel will be taken from fill image
+            else:
+                result[r_index].append(x) # if it doesn't then the pixel will be from the gs image instead of the fill image 
+            p_index += 1 # next pixel in row
+        r_index += 1 # next row
+        p_index = 0 # restart to acces first pixel in new row
+    return result #list containing pixels of the final image 
+
+def write_file(out_file,gs_dimensions,result):
+    '''
+    This function is meant to write the final file containing the rgb values of the pixels of the final image. 
+    out_file= file name the user inputs from main
+    gs_dimensions= contains what the dimensions of the gs file which should match the new final file
+    result: 3d list containing rgb values of each pixel that was determined for the final image.
+
+    '''
+    new_file = open(out_file, 'w') # make a new file to write in
+    new_file.write('P3'+ '\n')   # first writing the labels on top of the file per instruction
+    new_file.write(gs_dimensions + '\n')
+    new_file.write('255'+ '\n')
+    for row in result: # accessing the 3d list with the pixels of final image
+        for i in row:
+            for x in i: # using for loop to write each pixel in final file
+                new_file.write(str(x) + ' ')
+        new_file.write('\n') 
+    new_file.close()
+    
+
+ 
+
+
+def main():
+    '''
+    This function prompts for user input and validates them. It also calls the functions I made earlier to bring
+    the whole program together and functioning. It also helps determine the pixels of the gs image
+    and the fill image by calling the load_image_pixels function.
+
+    '''
+
+  
+    channel = input('Enter color channel\n') # prompting inputs and validating user inputs
+    if channel not in ['r', 'g', 'b']:
+        print('Channel must be r, g, or b. Will exit.')
+        exit()
+    channel_difference = float(input('Enter color channel difference\n'))
+    if channel_difference <= 1.0 or channel_difference >= 10.0:
+        print('Invalid channel difference. Will exit.')
+        exit()
+    gs_file = input('Enter greenscreen image file name\n')
+    gs_dimensions = get_image_dimensions_string(gs_file)
+    fi_file = input('Enter fill image file name\n')
+    if gs_dimensions != get_image_dimensions_string(fi_file):
+        print('Images not the same size. Will exit.')
+        exit()
+    out_file = input('Enter output file name\n') # name of final file
+
+    img_pixels = load_image_pixels(gs_file) # calling functions, determining parameters
+    fill_pixels = load_image_pixels(fi_file)
+    result = gs_algo(channel, channel_difference, img_pixels, fill_pixels)
+    write_file(out_file,gs_dimensions,result)
+    print('Output file written. Exiting.') 
+   
+
+main()
